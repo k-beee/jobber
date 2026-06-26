@@ -336,6 +336,168 @@ export default function Page() {
             </div>
           </div>
         )}
+
+        {nav === "create" && (
+          <div className="animate-fade-in">
+            <header style={pageHeader}>
+              <h1 style={titleStyle}>Post a Job Escrow</h1>
+              <p style={subtitleStyle}>Lock GEN tokens in a secure contract with explicit tasks and requirements.</p>
+            </header>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                runTransaction(
+                  "create_job",
+                  [form.title, form.description, form.requirements, Number(form.duration)],
+                  BigInt(form.amount || "0") * BigInt(10 ** 18)
+                );
+              }}
+              style={formCard}
+            >
+              <div style={formGroup}>
+                <label style={formLabel}>Contract Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Smart Contract Audit / Landing Page Design"
+                  value={form.title}
+                  onChange={e => setForm({ ...form, title: e.target.value })}
+                  required
+                  style={formInput}
+                />
+              </div>
+
+              <div style={formGroup}>
+                <label style={formLabel}>Job Specifications & Description</label>
+                <textarea
+                  placeholder="Clearly describe the project tasks, parameters, and deliverables..."
+                  value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  required
+                  rows={4}
+                  style={formTextarea}
+                />
+              </div>
+
+              <div style={formGroup}>
+                <label style={formLabel}>Validator Compliance Guidelines</label>
+                <textarea
+                  placeholder="Explicit requirements that AI validators will audit to settle disputes (e.g. must support dark mode, must pass unit tests)..."
+                  value={form.requirements}
+                  onChange={e => setForm({ ...form, requirements: e.target.value })}
+                  required
+                  rows={4}
+                  style={formTextarea}
+                />
+              </div>
+
+              <div style={twoColForm}>
+                <div style={formGroup}>
+                  <label style={formLabel}>Locked Escrow Amount (GEN)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 50"
+                    value={form.amount}
+                    onChange={e => setForm({ ...form, amount: e.target.value })}
+                    required
+                    style={formInput}
+                  />
+                </div>
+                <div style={formGroup}>
+                  <label style={formLabel}>Agreement Deadline (Hours)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 48"
+                    value={form.duration}
+                    onChange={e => setForm({ ...form, duration: e.target.value })}
+                    required
+                    style={formInput}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" disabled={loading} style={primaryActionBtn}>
+                {loading ? "Submitting Transaction..." : "Deploy Contract & Lock Escrow"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {nav === "explore" && !selectedJob && (
+          <div className="animate-fade-in">
+            <header style={pageHeader}>
+              <h1 style={titleStyle}>Explore Agreements</h1>
+              <p style={subtitleStyle}>Browse all active contract escrows, applications, and resolved arbitrations.</p>
+            </header>
+
+            {/* Filter Panel */}
+            <div style={filterPanel}>
+              <div style={filterItem}>
+                <label style={filterLabel}>Status Filter</label>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  style={filterSelect}
+                >
+                  <option value="all">All Agreements</option>
+                  <option value="open">Open (Waiting for Contractor)</option>
+                  <option value="active">Active (In Progress)</option>
+                  <option value="disputed">Under Dispute (AI Arbitration)</option>
+                  <option value="settled">Settled / Closed</option>
+                </select>
+              </div>
+              <div style={filterItem}>
+                <label style={filterLabel}>Role Filter</label>
+                <select
+                  value={userRoleFilter}
+                  onChange={e => setUserRoleFilter(e.target.value)}
+                  style={filterSelect}
+                >
+                  <option value="all">All Roles</option>
+                  <option value="involved">My Agreements</option>
+                  <option value="employer">As Employer</option>
+                  <option value="contractor">As Contractor</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Job Grid */}
+            <div style={jobsGrid}>
+              {filteredJobs.length === 0 ? (
+                <div style={emptyExploreState}>
+                  <span style={{ fontSize: 32 }}>📁</span>
+                  <p style={{ marginTop: 12, color: "var(--text-muted)" }}>No agreements matching these filters found.</p>
+                </div>
+              ) : (
+                filteredJobs.map(job => (
+                  <div key={job.id} onClick={() => setSelectedJob(job)} style={jobCard}>
+                    <div style={jobCardHeader}>
+                      <span style={statusBadge(job.status)}>{STATUS_LABELS[job.status]}</span>
+                      <span style={jobCardValue}>
+                        {(Number(BigInt(job.escrow_amount)) / 1e18).toFixed(2)} GEN
+                      </span>
+                    </div>
+                    <h3 style={jobCardTitle}>{job.title}</h3>
+                    <p style={jobCardDesc}>{job.description.slice(0, 120)}{job.description.length > 120 ? "..." : ""}</p>
+                    <div style={jobCardFooter}>
+                      <div style={jobFooterItem}>
+                        <span style={footerItemLabel}>Employer</span>
+                        <span style={footerItemVal}>{formatAddress(job.employer)}</span>
+                      </div>
+                      {job.contractor && (
+                        <div style={jobFooterItem}>
+                          <span style={footerItemLabel}>Contractor</span>
+                          <span style={footerItemVal}>{formatAddress(job.contractor)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -633,3 +795,180 @@ const emptyStateCard: React.CSSProperties = {
   padding: "40px",
   textAlign: "center",
 };
+
+const formCard: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 16,
+  padding: "32px",
+  maxWidth: 680,
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
+
+const formGroup: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const formLabel: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: "var(--text-main)",
+};
+
+const formInput: React.CSSProperties = {
+  background: "rgba(7, 9, 14, 0.4)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 10,
+  padding: "12px 16px",
+  color: "var(--text-main)",
+  fontSize: 14,
+  fontFamily: "var(--font-body)",
+};
+
+const formTextarea: React.CSSProperties = {
+  background: "rgba(7, 9, 14, 0.4)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 10,
+  padding: "12px 16px",
+  color: "var(--text-main)",
+  fontSize: 14,
+  fontFamily: "var(--font-body)",
+  resize: "vertical",
+};
+
+const twoColForm: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 20,
+};
+
+const primaryActionBtn: React.CSSProperties = {
+  background: "linear-gradient(135deg, var(--color-primary), #2563eb)",
+  color: "#fff",
+  border: "none",
+  borderRadius: 12,
+  padding: "14px 24px",
+  fontSize: 15,
+  fontWeight: 700,
+  cursor: "pointer",
+  marginTop: 10,
+  textAlign: "center",
+  boxShadow: "0 4px 12px rgba(59, 130, 246, 0.2)",
+};
+
+const filterPanel: React.CSSProperties = {
+  display: "flex",
+  gap: 20,
+  marginBottom: 32,
+  flexWrap: "wrap",
+};
+
+const filterItem: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  minWidth: 200,
+};
+
+const filterLabel: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: "var(--text-muted)",
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+};
+
+const filterSelect: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 10,
+  padding: "10px 16px",
+  color: "var(--text-main)",
+  fontSize: 14,
+  cursor: "pointer",
+};
+
+const jobsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+  gap: 24,
+};
+
+const jobCard: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 20,
+  padding: "24px",
+  cursor: "pointer",
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+  position: "relative",
+  overflow: "hidden",
+};
+
+const jobCardHeader: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const jobCardValue: React.CSSProperties = {
+  fontFamily: "var(--font-display)",
+  color: "var(--color-primary)",
+  fontSize: 16,
+  fontWeight: 800,
+};
+
+const jobCardTitle: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 700,
+  fontFamily: "var(--font-body)",
+};
+
+const jobCardDesc: React.CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: 13,
+  lineHeight: 1.5,
+  flex: 1,
+};
+
+const jobCardFooter: React.CSSProperties = {
+  borderTop: "1px solid var(--border-color)",
+  paddingTop: 12,
+  display: "flex",
+  gap: 16,
+};
+
+const jobFooterItem: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 2,
+};
+
+const footerItemLabel: React.CSSProperties = {
+  fontSize: 10,
+  color: "var(--text-muted)",
+  textTransform: "uppercase",
+  fontWeight: 700,
+};
+
+const footerItemVal: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  fontFamily: "monospace",
+};
+
+const emptyExploreState: React.CSSProperties = {
+  gridColumn: "1 / -1",
+  background: "var(--bg-card)",
+  border: "1px dashed var(--border-color)",
+  borderRadius: 20,
+  padding: "60px 20px",
+  textAlign: "center",
+};
+
