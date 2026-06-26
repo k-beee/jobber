@@ -565,6 +565,40 @@ export default function Page() {
                     <p style={descText}>{selectedJob.dispute_reason}</p>
                   </div>
                 )}
+
+                {selectedJob.resolution && (
+                  <div style={resolutionBox}>
+                    <h4 style={subSectionTitle}>⚖️ AI Arbitration Decision</h4>
+                    {(() => {
+                      try {
+                        const res = JSON.parse(selectedJob.resolution);
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <div style={{ display: "flex", gap: 16 }}>
+                              <div>
+                                <b>Verdict:</b>{" "}
+                                <span style={{ textTransform: "capitalize", color: "var(--color-accent)", fontWeight: 700 }}>
+                                  {res.decision}
+                                </span>
+                              </div>
+                              <div>
+                                <b>Contractor Payout:</b> {res.payout_percent}%
+                              </div>
+                            </div>
+                            <div>
+                              <b>Arbitrator Reasoning:</b>
+                              <p style={{ marginTop: 6, fontStyle: "italic", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.4 }}>
+                                "{res.reasoning}"
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      } catch {
+                        return <p style={descText}>{selectedJob.resolution}</p>;
+                      }
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* Right Column: Escrow Financials & Action Panel */}
@@ -661,9 +695,110 @@ export default function Page() {
                     </div>
                   )}
 
-                  {selectedJob.status > 2 && (
+                  {selectedJob.status === 3 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 4, lineHeight: 1.4 }}>
+                        The contract is in dispute. Trigger the GenLayer AI validator consensus pool to evaluate the deliverable against specifications.
+                      </p>
+                      <button
+                        onClick={() => runTransaction("resolve_dispute", [selectedJob.id])}
+                        disabled={loading}
+                        style={accentActionBtn}
+                      >
+                        {loading ? "Resolving Dispute..." : "⚖️ Trigger AI Arbitration"}
+                      </button>
+                    </div>
+                  )}
+
+                  {selectedJob.status === 4 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      {/* Employer rating Contractor */}
+                      {wallet.address &&
+                        selectedJob.employer.toLowerCase() === wallet.address.toLowerCase() &&
+                        !selectedJob.contractor_rated && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>
+                              RATE CONTRACTOR (1-5 STARS)
+                            </label>
+                            <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <span
+                                  key={star}
+                                  onClick={() => setRatingValue(star)}
+                                  style={{
+                                    cursor: "pointer",
+                                    fontSize: 20,
+                                    color: star <= ratingValue ? "var(--color-accent)" : "var(--border-color)",
+                                  }}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => runTransaction("rate_contractor", [selectedJob.id, ratingValue])}
+                              disabled={loading}
+                              style={successActionBtn}
+                            >
+                              Submit Contractor Rating
+                            </button>
+                          </div>
+                        )}
+
+                      {/* Contractor rating Employer */}
+                      {wallet.address &&
+                        selectedJob.contractor.toLowerCase() === wallet.address.toLowerCase() &&
+                        !selectedJob.employer_rated && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>
+                              RATE EMPLOYER (1-5 STARS)
+                            </label>
+                            <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <span
+                                  key={star}
+                                  onClick={() => setRatingValue(star)}
+                                  style={{
+                                    cursor: "pointer",
+                                    fontSize: 20,
+                                    color: star <= ratingValue ? "var(--color-accent)" : "var(--border-color)",
+                                  }}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => runTransaction("rate_employer", [selectedJob.id, ratingValue])}
+                              disabled={loading}
+                              style={successActionBtn}
+                            >
+                              Submit Employer Rating
+                            </button>
+                          </div>
+                        )}
+
+                      {/* If both rated or user not involved */}
+                      {((selectedJob.employer_rated && selectedJob.contractor_rated) ||
+                        (wallet.address &&
+                          selectedJob.employer.toLowerCase() === wallet.address.toLowerCase() &&
+                          selectedJob.contractor_rated) ||
+                        (wallet.address &&
+                          selectedJob.contractor.toLowerCase() === wallet.address.toLowerCase() &&
+                          selectedJob.employer_rated) ||
+                        !wallet.address ||
+                        (wallet.address.toLowerCase() !== selectedJob.employer.toLowerCase() &&
+                          wallet.address.toLowerCase() !== selectedJob.contractor.toLowerCase())) && (
+                        <p style={{ color: "var(--color-secondary)", fontSize: 14, fontWeight: 600 }}>
+                          ✅ Feedback and payments are completely settled.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedJob.status === 5 && (
                     <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-                      No direct actions available. See status metrics or ratings.
+                      This agreement was cancelled and refunded.
                     </p>
                   )}
                 </div>
@@ -1390,6 +1525,28 @@ const disputeSection: React.CSSProperties = {
   gap: 10,
   borderTop: "1px solid var(--border-color)",
   paddingTop: 16,
+  marginTop: 16,
+};
+
+const accentActionBtn: React.CSSProperties = {
+  background: "linear-gradient(135deg, var(--color-accent), #d97706)",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10,
+  padding: "14px",
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: "pointer",
+  width: "100%",
+  textAlign: "center",
+  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.2)",
+};
+
+const resolutionBox: React.CSSProperties = {
+  background: "rgba(16, 185, 129, 0.05)",
+  border: "1px solid rgba(16, 185, 129, 0.2)",
+  borderRadius: 16,
+  padding: "24px",
   marginTop: 16,
 };
 
