@@ -497,6 +497,179 @@ export default function Page() {
               )}
             </div>
           </div>
+        {nav === "explore" && selectedJob && (
+          <div className="animate-fade-in" style={detailContainer}>
+            {/* Back header */}
+            <div style={detailHeader}>
+              <button onClick={() => setSelectedJob(null)} style={backBtn}>
+                ← Back to Explorer
+              </button>
+              <span style={statusBadge(selectedJob.status)}>{STATUS_LABELS[selectedJob.status]}</span>
+            </div>
+
+            <div style={detailContentGrid}>
+              {/* Left Column: Contract Details */}
+              <div style={detailLeftCol}>
+                <h2 style={detailTitle}>{selectedJob.title}</h2>
+                <div style={detailMetaRow}>
+                  <div style={detailMetaItem}>
+                    <span style={metaItemLabel}>Employer Address</span>
+                    <span style={metaItemVal}>{selectedJob.employer}</span>
+                  </div>
+                  {selectedJob.contractor && (
+                    <div style={detailMetaItem}>
+                      <span style={metaItemLabel}>Contractor Address</span>
+                      <span style={metaItemVal}>{selectedJob.contractor}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={timelineContainer}>
+                  <h4 style={subSectionTitle}>Progress Tracker</h4>
+                  <div style={timeline}>
+                    {[
+                      { l: "Created", a: true },
+                      { l: "Accepted", a: selectedJob.status >= 1 },
+                      { l: "Submitted", a: selectedJob.status >= 2 },
+                      { l: "Completed", a: selectedJob.status === 4 },
+                    ].map((step, idx) => (
+                      <div key={idx} style={timelineStep}>
+                        <div style={stepBullet(step.a)}></div>
+                        <span style={stepLabelText(step.a)}>{step.l}</span>
+                        {idx < 3 && <div style={stepLine(step.a)}></div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={descBox}>
+                  <h4 style={subSectionTitle}>Project Specifications</h4>
+                  <p style={descText}>{selectedJob.description}</p>
+                </div>
+
+                <div style={descBox}>
+                  <h4 style={subSectionTitle}>Compliance Guidelines & Requirements</h4>
+                  <p style={descText}>{selectedJob.requirements}</p>
+                </div>
+
+                {selectedJob.deliverable && (
+                  <div style={deliverableBox}>
+                    <h4 style={subSectionTitle}>Submitted Deliverable</h4>
+                    <p style={descText}>{selectedJob.deliverable}</p>
+                  </div>
+                )}
+
+                {selectedJob.dispute_reason && (
+                  <div style={disputeBox}>
+                    <h4 style={subSectionTitle}>Dispute Reason</h4>
+                    <p style={descText}>{selectedJob.dispute_reason}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Escrow Financials & Action Panel */}
+              <div style={detailRightCol}>
+                <div style={financialCard}>
+                  <span style={financialLabel}>Escrow Custody</span>
+                  <span style={financialValue}>
+                    {(Number(BigInt(selectedJob.escrow_amount)) / 1e18).toFixed(2)} GEN
+                  </span>
+                  <div style={deadlineInfo}>
+                    <span>Deadline Target:</span>
+                    <span>{new Date(selectedJob.deadline * 1000).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Actions Box */}
+                <div style={actionsCard}>
+                  <h4 style={actionsCardTitle}>Contract Actions</h4>
+                  
+                  {/* Contractor accepts open job */}
+                  {selectedJob.status === 0 && (
+                    <div style={actionButtonGroup}>
+                      <button
+                        onClick={() => runTransaction("accept_job", [selectedJob.id])}
+                        disabled={loading}
+                        style={primaryActionBtn}
+                      >
+                        {loading ? "Accepting..." : "Accept & Start Contract"}
+                      </button>
+                      <button
+                        onClick={() => runTransaction("cancel_job", [selectedJob.id])}
+                        disabled={loading}
+                        style={dangerActionBtn}
+                      >
+                        {loading ? "Cancelling..." : "Cancel Contract & Refund"}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Contractor submits deliverables */}
+                  {selectedJob.status === 1 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <textarea
+                        placeholder="Provide details of your deliverable (description, links to commits/hosting)..."
+                        value={submissionText}
+                        onChange={e => setSubmissionText(e.target.value)}
+                        rows={4}
+                        style={formTextarea}
+                      />
+                      <button
+                        onClick={() => runTransaction("submit_work", [selectedJob.id, submissionText])}
+                        disabled={loading || !submissionText}
+                        style={primaryActionBtn}
+                      >
+                        {loading ? "Submitting..." : "Submit Deliverables"}
+                      </button>
+                      <button
+                        onClick={() => runTransaction("claim_expired_refund", [selectedJob.id])}
+                        disabled={loading}
+                        style={dangerActionBtn}
+                      >
+                        Claim Expired Refund
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Employer reviews deliverables */}
+                  {selectedJob.status === 2 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      <button
+                        onClick={() => runTransaction("approve_work", [selectedJob.id])}
+                        disabled={loading}
+                        style={successActionBtn}
+                      >
+                        {loading ? "Releasing funds..." : "Approve Work & Release Payout"}
+                      </button>
+                      
+                      <div style={disputeSection}>
+                        <textarea
+                          placeholder="Provide the reason you are disputing this deliverable..."
+                          value={disputeText}
+                          onChange={e => setDisputeText(e.target.value)}
+                          rows={3}
+                          style={formTextarea}
+                        />
+                        <button
+                          onClick={() => runTransaction("raise_dispute", [selectedJob.id, disputeText])}
+                          disabled={loading || !disputeText}
+                          style={dangerActionBtn}
+                        >
+                          {loading ? "Filing dispute..." : "Reject Work & Open Dispute"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedJob.status > 2 && (
+                    <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                      No direct actions available. See status metrics or ratings.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>
@@ -971,4 +1144,253 @@ const emptyExploreState: React.CSSProperties = {
   padding: "60px 20px",
   textAlign: "center",
 };
+
+const detailContainer: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 24,
+};
+
+const detailHeader: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const backBtn: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  color: "var(--color-primary)",
+  fontSize: 15,
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const detailContentGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "2fr 1fr",
+  gap: 32,
+  alignItems: "start",
+};
+
+const detailLeftCol: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 24,
+};
+
+const detailRightCol: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 24,
+};
+
+const detailTitle: React.CSSProperties = {
+  fontFamily: "var(--font-display)",
+  fontSize: 26,
+  fontWeight: 800,
+};
+
+const detailMetaRow: React.CSSProperties = {
+  display: "flex",
+  gap: 24,
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 12,
+  padding: "16px",
+};
+
+const detailMetaItem: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+};
+
+const metaItemLabel: React.CSSProperties = {
+  fontSize: 11,
+  color: "var(--text-muted)",
+  textTransform: "uppercase",
+  fontWeight: 700,
+};
+
+const metaItemVal: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "monospace",
+};
+
+const timelineContainer: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 16,
+  padding: "24px",
+};
+
+const subSectionTitle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  color: "var(--text-muted)",
+  marginBottom: 12,
+  letterSpacing: "0.5px",
+};
+
+const timeline: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  position: "relative",
+  padding: "0 10px",
+  marginTop: 10,
+};
+
+const timelineStep: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 8,
+  flex: 1,
+  position: "relative",
+};
+
+const stepBullet = (active: boolean): React.CSSProperties => ({
+  width: 14,
+  height: 14,
+  borderRadius: "50%",
+  background: active ? "var(--color-primary)" : "var(--border-color)",
+  boxShadow: active ? "0 0 10px var(--color-primary)" : "none",
+  zIndex: 2,
+});
+
+const stepLabelText = (active: boolean): React.CSSProperties => ({
+  fontSize: 12,
+  fontWeight: 700,
+  color: active ? "var(--text-main)" : "var(--text-muted)",
+});
+
+const stepLine = (active: boolean): React.CSSProperties => ({
+  position: "absolute",
+  top: 6,
+  left: "50%",
+  width: "100%",
+  height: 2,
+  background: active ? "var(--color-primary)" : "var(--border-color)",
+  zIndex: 1,
+});
+
+const descBox: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 16,
+  padding: "24px",
+};
+
+const descText: React.CSSProperties = {
+  fontSize: 14,
+  color: "var(--text-main)",
+  lineHeight: 1.6,
+};
+
+const deliverableBox: React.CSSProperties = {
+  background: "rgba(168, 85, 247, 0.05)",
+  border: "1px solid rgba(168, 85, 247, 0.2)",
+  borderRadius: 16,
+  padding: "24px",
+};
+
+const disputeBox: React.CSSProperties = {
+  background: "rgba(239, 68, 68, 0.05)",
+  border: "1px solid rgba(239, 68, 68, 0.2)",
+  borderRadius: 16,
+  padding: "24px",
+};
+
+const financialCard: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 16,
+  padding: "24px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const financialLabel: React.CSSProperties = {
+  fontSize: 14,
+  color: "var(--text-muted)",
+  fontWeight: 600,
+};
+
+const financialValue: React.CSSProperties = {
+  fontFamily: "var(--font-display)",
+  fontSize: 32,
+  fontWeight: 800,
+  color: "var(--color-primary)",
+};
+
+const deadlineInfo: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  fontSize: 12,
+  borderTop: "1px solid var(--border-color)",
+  paddingTop: 12,
+  marginTop: 8,
+  color: "var(--text-muted)",
+};
+
+const actionsCard: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  borderRadius: 16,
+  padding: "24px",
+};
+
+const actionsCardTitle: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 700,
+  marginBottom: 16,
+};
+
+const actionButtonGroup: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const dangerActionBtn: React.CSSProperties = {
+  background: "rgba(239, 68, 68, 0.1)",
+  color: "var(--color-danger)",
+  border: "1px solid rgba(239, 68, 68, 0.3)",
+  borderRadius: 10,
+  padding: "12px",
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: "pointer",
+  width: "100%",
+  textAlign: "center",
+};
+
+const successActionBtn: React.CSSProperties = {
+  background: "linear-gradient(135deg, var(--color-secondary), #059669)",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10,
+  padding: "14px",
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: "pointer",
+  width: "100%",
+  textAlign: "center",
+  boxShadow: "0 4px 12px rgba(16, 185, 129, 0.2)",
+};
+
+const disputeSection: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  borderTop: "1px solid var(--border-color)",
+  paddingTop: 16,
+  marginTop: 16,
+};
+
 
