@@ -1,0 +1,7 @@
+{
+  "name": "deploy-script",
+  "type": "module",
+  "dependencies": {
+    "genlayer-js": "^0.5.0"
+  }
+}
