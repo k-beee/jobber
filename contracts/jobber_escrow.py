@@ -173,6 +173,107 @@ class JobberEscrow(gl.Contract):
         """
         return self.job_count
 
+    @gl.public.write
+    def resolve_dispute(self, job_id: str) -> typing.Any:
+        """
+        Triggers GenLayer AI arbitration to resolve a contract dispute.
+        Validators execute the same analysis and reach consensus.
+        """
+        job = json.loads(self.jobs[job_id])
+        if job["status"] != 3:
+            raise gl.vm.UserError("Job is not in disputed state")
+
+        def leader_fn():
+            prompt = f"""You are an AI arbitrator for a freelance job dispute on Jobber.
+
+JOB TITLE: {job['title']}
+JOB DESCRIPTION: {job['description']}
+CONTRACT REQUIREMENTS: {job['requirements']}
+DELIVERABLE SUBMITTED BY CONTRACTOR: {job['deliverable']}
+EMPLOYER'S DISPUTE REASON: {job['dispute_reason']}
+
+Evaluate whether the contractor meets the job requirements.
+Consider:
+1. Does the deliverable fulfill the core technical requirements?
+2. Is the employer's dispute reason valid and fair?
+3. What is a fair payout distribution?
+
+You must output a raw JSON object containing EXACTLY:
+{{
+    "decision": "contractor" or "employer" or "split",
+    "reasoning": "A brief explanation of your decision",
+    "payout_percent": 0 to 100
+}}
+Ensure there is no extra text or markdown surrounding the JSON. Output only the JSON.
+"""
+            response = gl.nondet.exec_prompt(prompt)
+            return self._parse_json(response)
+
+        def validator_fn(leader_result) -> bool:
+            if not isinstance(leader_result, gl.vm.Return):
+                return False
+            validator_data = leader_fn()
+            leader_data = leader_result.calldata
+            
+            # Decision must match exactly
+            if leader_data["decision"] != validator_data["decision"]:
+                return False
+            
+            # Payout percentage must match within a 10% tolerance
+            return abs(leader_data["payout_percent"] - validator_data["payout_percent"]) <= 10
+
+        result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+
+        escrow_amount = u256(int(job["escrow_amount"]))
+        payout_pct = result["payout_percent"]
+        contractor_share = u256((int(escrow_amount) * payout_pct) // 100)
+        employer_share = u256(int(escrow_amount) - int(contractor_share))
+
+        if int(contractor_share) > 0:
+            self._disburse_payment(job["contractor"], contractor_share)
+        if int(employer_share) > 0:
+            self._disburse_payment(job["employer"], employer_share)
+
+        job["status"] = 4
+        job["resolution"] = json.dumps(result)
+        self.jobs[job_id] = json.dumps(job)
+        return result
+
+    def _parse_json(self, raw_str: str) -> typing.Any:
+        """
+        Safely extracts and parses JSON content from LLM output, resilient to markdown ticks and text wrapper blocks.
+        """
+        start = raw_str.find("{")
+        end = raw_str.rfind("}")
+        if start == -1 or end == -1 or start > end:
+            raise gl.vm.UserError("Arbitrator output did not contain valid JSON block")
+        json_str = raw_str[start : end + 1]
+        try:
+            data = json.loads(json_str)
+        except Exception:
+            raise gl.vm.UserError("Failed to parse JSON content from arbitrator")
+        
+        # Verify schema
+        if "decision" not in data or "payout_percent" not in data:
+            raise gl.vm.UserError("Arbitrator JSON output is missing required fields")
+        
+        # Validate values
+        decision = str(data["decision"]).lower()
+        if decision not in ["contractor", "employer", "split"]:
+            raise gl.vm.UserError("Invalid decision option returned by arbitrator")
+            
+        try:
+            percent = int(data["payout_percent"])
+        except Exception:
+            raise gl.vm.UserError("Payout percent must be an integer")
+            
+        if percent < 0 or percent > 100:
+            raise gl.vm.UserError("Payout percent must be between 0 and 100")
+            
+        data["decision"] = decision
+        data["payout_percent"] = percent
+        return data
+
     def _disburse_payment(self, recipient: str, amount: u256) -> None:
         """
         Inner helper to perform native token transfers.
