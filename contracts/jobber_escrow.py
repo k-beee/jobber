@@ -274,6 +274,70 @@ Ensure there is no extra text or markdown surrounding the JSON. Output only the 
         data["payout_percent"] = percent
         return data
 
+    @gl.public.write
+    def rate_employer(self, job_id: str, score: i32) -> None:
+        """
+        Allows the contractor to rate the employer after job completion (1-5 stars).
+        """
+        if int(score) < 1 or int(score) > 5:
+            raise gl.vm.UserError("Rating score must be between 1 and 5")
+        
+        job = json.loads(self.jobs[job_id])
+        if job["status"] != 4:
+            raise gl.vm.UserError("Ratings can only be submitted for completed jobs")
+        if str(gl.message.sender_address) != job["contractor"]:
+            raise gl.vm.UserError("Only the assigned contractor can rate the employer")
+        if job["employer_rated"]:
+            raise gl.vm.UserError("You have already rated the employer for this job")
+
+        job["employer_rated"] = True
+        self.jobs[job_id] = json.dumps(job)
+        self._update_reputation(job["employer"], int(score))
+
+    @gl.public.write
+    def rate_contractor(self, job_id: str, score: i32) -> None:
+        """
+        Allows the employer to rate the contractor after job completion (1-5 stars).
+        """
+        if int(score) < 1 or int(score) > 5:
+            raise gl.vm.UserError("Rating score must be between 1 and 5")
+        
+        job = json.loads(self.jobs[job_id])
+        if job["status"] != 4:
+            raise gl.vm.UserError("Ratings can only be submitted for completed jobs")
+        if str(gl.message.sender_address) != job["employer"]:
+            raise gl.vm.UserError("Only the employer can rate the contractor")
+        if job["contractor_rated"]:
+            raise gl.vm.UserError("You have already rated the contractor for this job")
+
+        job["contractor_rated"] = True
+        self.jobs[job_id] = json.dumps(job)
+        self._update_reputation(job["contractor"], int(score))
+
+    @gl.public.view
+    def get_user_rating(self, address: str) -> str:
+        """
+        Returns JSON-encoded rating statistics for a given address.
+        """
+        try:
+            return self.ratings[address]
+        except Exception:
+            return json.dumps({"total_score": 0, "count": 0, "average": 0.0})
+
+    def _update_reputation(self, address: str, score: int) -> None:
+        """
+        Internal helper to update the average rating of a user address.
+        """
+        try:
+            stats = json.loads(self.ratings[address])
+        except Exception:
+            stats = {"total_score": 0, "count": 0, "average": 0.0}
+
+        stats["total_score"] += score
+        stats["count"] += 1
+        stats["average"] = round(float(stats["total_score"]) / stats["count"], 2)
+        self.ratings[address] = json.dumps(stats)
+
     def _disburse_payment(self, recipient: str, amount: u256) -> None:
         """
         Inner helper to perform native token transfers.
@@ -285,3 +349,4 @@ Ensure there is no extra text or markdown surrounding the JSON. Output only the 
             class Write:
                 pass
         _RecipientAddress(Address(recipient)).emit_transfer(value=amount)
+
