@@ -6,6 +6,8 @@ Jobber is a decentralized freelance agreement marketplace and secure escrow plat
 
 📜 **Contract (GenLayer Studionet):** `0x9FE4534ae99C7cd9F5963bC6e0715A7d05D32318`
 
+🌐 **Live Demo:** [https://frontend-alpha-three-27.vercel.app](https://frontend-alpha-three-27.vercel.app)
+
 ---
 
 ## 📖 Table of Contents
@@ -14,8 +16,9 @@ Jobber is a decentralized freelance agreement marketplace and secure escrow plat
 3. [Lifecycle Architecture](#-lifecycle-architecture)
 4. [Intelligent Contract API](#-intelligent-contract-api)
 5. [Tech Stack](#-tech-stack)
-6. [Developer Quickstart](#-developer-quickstart)
-7. [License](#-license)
+6. [Live Deployment](#-live-deployment)
+7. [Developer Quickstart](#-developer-quickstart)
+8. [License](#-license)
 
 ---
 
@@ -104,6 +107,16 @@ The Intelligent Contract is implemented in Python and runs on **GenVM**.
 - **Frontend Framework**: Next.js (TypeScript, React 18, Static Build Export)
 - **Network Interface**: `genlayer-js` SDK (Direct EVM Provider injection)
 - **Styling System**: CSS Variables + Google Fonts (Outfit Display + Syne Body headers)
+
+---
+
+## 🌐 Live Deployment
+
+The frontend is deployed on **Vercel** and publicly accessible:
+
+🔗 **[https://frontend-alpha-three-27.vercel.app](https://frontend-alpha-three-27.vercel.app)**
+
+Connect your MetaMask or Rabby wallet, switch to **GenLayer Studio Network** (Chain ID `61999`, RPC `https://studio.genlayer.com/api`), and interact with the live escrow contracts directly from your browser.
 
 ---
 
