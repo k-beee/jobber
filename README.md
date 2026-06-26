@@ -4,6 +4,8 @@
 
 Jobber is a decentralized freelance agreement marketplace and secure escrow platform running on **GenLayer**. It protects employers and contractors by holding funds in trust and resolving subjective completion disputes trustlessly using decentralized LLM validators.
 
+📜 **Contract (GenLayer Studionet):** `0x9FE4534ae99C7cd9F5963bC6e0715A7d05D32318`
+
 ---
 
 ## 📖 Table of Contents
