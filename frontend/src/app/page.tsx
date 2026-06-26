@@ -497,6 +497,7 @@ export default function Page() {
               )}
             </div>
           </div>
+        )}
         {nav === "explore" && selectedJob && (
           <div className="animate-fade-in" style={detailContainer}>
             {/* Back header */}
